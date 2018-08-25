@@ -21,6 +21,12 @@ void* get_addr_ptr(sockaddr *saddr) {
     return &(((sockaddr_in6*)saddr)->sin6_addr);
 }
 
+void* get_port_ptr(sockaddr *saddr) {
+    if( saddr->sa_family == AF_INET )
+        return &(((sockaddr_in*)saddr)->sin_port);
+    return &(((sockaddr_in6*)saddr)->sin6_port);
+}
+
 int main(int argc, char *argv[]){
     //Check input
     if ( argc != 2) {
@@ -29,12 +35,9 @@ int main(int argc, char *argv[]){
         exit(1);
     }
 
-    addrinfo         hints, *res, *p;
-    sockaddr_storage remote_addr;
-
+    addrinfo  hints, *res, *p;
     char      ipstr[INET6_ADDRSTRLEN];
-    int       sockfd, remotefd, rv;
-    socklen_t addr_sz;
+    int       sockfd, rv;
     
     memset(&hints, 0, sizeof hints); // Zero out our struct
     hints.ai_family   = AF_INET;     // IPv4
@@ -88,8 +91,9 @@ int main(int argc, char *argv[]){
     }
 
     while (1) {
-        addr_sz = sizeof remote_addr;
-        remotefd = accept(sockfd, (sockaddr*)&remote_addr, &addr_sz);
+        sockaddr_storage remote_addr;
+        socklen_t addr_sz = sizeof remote_addr;
+        int remotefd = accept(sockfd, (sockaddr*)&remote_addr, &addr_sz);
         if ( remotefd == -1 ) {
             perror("Accept");
             continue;
@@ -99,7 +103,35 @@ int main(int argc, char *argv[]){
                   get_addr_ptr((sockaddr *)&remote_addr),
                   ipstr, 
                   sizeof ipstr);
-        printf("Connection from: %s\n", ipstr);
+
+        printf("----------------------------\n");
+        printf("New Connection...\n");
+
+        sockaddr local, peer;
+        socklen_t local_len = sizeof local;
+        socklen_t peer_len  = sizeof peer;
+        in_port_t* port;
+
+        if(getsockname(remotefd, &local, &local_len) != 0) {
+            perror("\tgetsockname");
+            exit(1);
+        }
+        if(getpeername(remotefd, &peer,  &peer_len) != 0 ) {
+            perror("\tgetpeername");
+            exit(1);
+        }
+
+        inet_ntop(local.sa_family, get_addr_ptr(&local),
+                  ipstr, sizeof ipstr);
+        port = (in_port_t*)get_port_ptr(&local);
+        printf("\tLocal IP:\t%s\n", ipstr);
+        printf("\tLocal Port:\t%u\n", ntohs(*port));
+
+        inet_ntop(peer.sa_family, get_addr_ptr(&peer),
+                  ipstr, sizeof ipstr);
+        port = (in_port_t*)get_port_ptr(&peer);
+        printf("\tPeer IP:\t%s\n", ipstr);
+        printf("\tPeer Port:\t%u\n", ntohs(*port));
         
         if ( send(remotefd, "Hello World", 11, 0) == -1 ) {
             perror("Send");
@@ -109,6 +141,4 @@ int main(int argc, char *argv[]){
 
     return 0;
 }
-
-
 

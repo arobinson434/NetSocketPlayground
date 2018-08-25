@@ -21,7 +21,7 @@ netcat localhost 8080
 When I initially wrote this code, I figured that I would bind to both `0.0.0.0`
 and `::`, so that I would be listening on both IPv4 and IPv6. To do this I
 wrote the create, bind, and listen loop like this:
-```
+```c++
 memset(&hints, 0, sizeof hints); // Zero out our struct
 hints.ai_family   = AF_UNSPEC;   // Both IPv4 and IPv6
 hints.ai_socktype = SOCK_STREAM; // TCP
